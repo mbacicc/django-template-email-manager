@@ -30,6 +30,7 @@ media
 
 # Distribution / packaging 
 .Python build/ 
+build/ 
 develop-eggs/ 
 dist/ 
 downloads/ 
@@ -46,6 +47,7 @@ wheels/
 *.egg 
 *.manifest 
 *.spec 
+.pypirc
 
 # Installer logs 
 pip-log.txt 

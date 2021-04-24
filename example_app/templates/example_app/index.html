@@ -1,0 +1,28 @@
+{% extends 'example_app/base.html' %}
+{% block title %}Email Example App{% endblock %}
+{% block navbar_content %}
+<a class="navbar-brand" href="{% url 'example_app:index' %}">Home</a>
+<button
+  class="navbar-toggler"
+  type="button"
+  data-bs-toggle="collapse"
+  data-bs-target="#navbarCollapse"
+  aria-controls="navbarCollapse"
+  aria-expanded="false"
+  aria-label="Toggle navigation"
+>
+  <span class="navbar-toggler-icon"></span>
+</button>
+<div class="collapse navbar-collapse" id="navbarCollapse">
+  <ul class="navbar-nav me-auto mb-2 mb-md-0">
+    <!-- <li class="nav-item">
+            <a class="nav-link" href="#">Link</a>
+          </li> -->
+  </ul>
+</div>
+{% endblock %} {% block content %}
+<h1 class="mt-5">Examples</h1>
+<a  href="{% url 'example_app:add_email' %}" class="btn btn-primary mt-2">
+  Add Email to queue
+</a>
+{% endblock %}
