@@ -40,12 +40,18 @@ class TemplateEmailMessage():
             self.SendAccountId = SendAccountId
         else:
             Error = True
-            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId are SendAccountName are specified, please specify only one'
+            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId and SendAccountName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set SendAccountId, since both SendAccountId and"
+                "SendAccountName are specified, please specify only one.")
         if SendAccountName and not SendAccountId:
             self.SendAccountName = SendAccountName
         else:
             Error = True
-            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId are SendAccountName are specified, please specify only one'
+            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId and SendAccountName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set SendAccountId, since both SendAccountId and"
+                "SendAccountName are specified, please specify only one.")
         if ToAddresses:
             self.ToAddresses = ToAddresses
         if BccAddresses:
@@ -59,11 +65,18 @@ class TemplateEmailMessage():
         else:
             Error = True
             ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy are MessageCreatedByName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set MessageCreatedBy, since both MessageCreatedBy and"
+                "MessageCreatedByName are specified, please specify only one.")
         if MessageCreatedByName and not MessageCreatedBy:
             self.MessageCreatedByName = MessageCreatedByName
         else:
             Error = True
-            ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy are MessageCreatedByName are specified, please specify only one'
+            ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy and MessageCreatedByName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set MessageCreatedBy, since both MessageCreatedBy and"
+                "MessageCreatedByName are specified, please specify only one.")
+            
         if MessageId:
             self.RetrieveMessage(MessageId)
         else:
@@ -97,7 +110,7 @@ class TemplateEmailMessage():
                     send_user = User.objects.get(pk=1)
                 self.Message = EmailQueue(subject=subject,
                     sender=proto.sender,
-                    template_html=proto.template_html,
+                    html_template=proto.html_template,
                     created_by=send_user,
                     status=EmailQueue.EmailQueueStatus.CREATING)
                 self.Message.save()
@@ -105,7 +118,7 @@ class TemplateEmailMessage():
                 self.Message.bcc.set(proto.bcc.all())
                 self.Message.save()
                 email_context_items = []
-                for def_cont in proto.template_html.requested_context_classes.all():
+                for def_cont in proto.html_template.requested_context_classes.all():
                     print (def_cont)
                     item_value = None
                     try:

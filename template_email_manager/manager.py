@@ -13,7 +13,9 @@ from django.utils import timezone
 from datetime import timedelta
 
 from django.core.mail import EmailMessage
-from django.core.mail.backends.smtp import EmailBackend
+# Discard config read from settings, load all the backends and choose the appropriate one depending on the email config
+from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
+from django.core.mail.backends.console import EmailBackend as ConsoleEmailBackend
 from .models import *
 
 
@@ -24,8 +26,12 @@ def attempt_send_email(email):
     except:
         return None
     if email_config:
-        backend = EmailBackend(host=email_config.host, port=email_config.port, username=email_config.username, 
+        smtp_backend = SMTPEmailBackend(host=email_config.host, port=email_config.port, username=email_config.username, 
                         password=email_config.password, use_tls=email_config.use_tls, fail_silently=email_config.fail_silently)
+
+        console_backend = ConsoleEmailBackend(fail_silently=email_config.fail_silently)
+
+
 
         try:
             email.status = EmailQueue.EmailQueueStatus.INPROGRESS
@@ -53,11 +59,11 @@ def attempt_send_email(email):
             }
             context.update(cont_item)
 
-        html_template_string = email.template_html.html_content
+        html_template_string = email.html_template.html_content
         html_template = Template(html_template_string)
         html_content = html_template.render(Context(context))
 
-        txt_template_string = email.template_html.text_alternate
+        txt_template_string = email.html_template.text_alternate
         txt_template = Template(txt_template_string)
         text_content = txt_template.render(Context(context))
 
@@ -68,7 +74,7 @@ def attempt_send_email(email):
         
         success = True
         try:
-            for image in email.template_html.images.all():
+            for image in email.html_template.images.all():
                 fp = open(os.path.join(settings.MEDIA_ROOT, image.image.name), 'rb')
                 msg_img = MIMEImage(fp.read())
                 fp.close()

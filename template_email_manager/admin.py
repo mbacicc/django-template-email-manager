@@ -1,13 +1,14 @@
 from django.contrib import admin
-
+from django import forms
 from .models import *
 
 class EmailConfigAdmin(admin.ModelAdmin):
 
-    list_display = ('config_name', 'active', )
-    list_editable = ('active', )
+    list_display = ('config_name', 'default', 'backend' )
+    list_editable = ('default', )
     list_per_page = 10
     show_full_result_count = False
+
 
 admin.site.register(EmailConfig,EmailConfigAdmin)
 admin.site.register(ImageAttachment)
@@ -23,13 +24,13 @@ admin.site.register(EmailAddress,EmailAddressAdmin)
 class EmailQueueAdmin(admin.ModelAdmin):
     filter_horizontal = ('context_items', 'to', 'bcc')
     model = EmailQueue
-    list_display = ['id', 'subject', 'template_html', 'status','created_by', 'created_on', 'sent_on', 'send_attempts']
+    list_display = ['id', 'subject', 'html_template', 'status','created_by', 'created_on', 'sent_on', 'send_attempts']
     list_filter = ('status',)
 admin.site.register(EmailQueue,EmailQueueAdmin)
 class EmailPrototypeAdmin(admin.ModelAdmin):
     filter_horizontal = ('to', 'bcc')
     model = EmailPrototype
-    list_display = ['id', 'name', 'subject', 'template_html']
+    list_display = ['id', 'name', 'subject', 'html_template']
 admin.site.register(EmailPrototype,EmailPrototypeAdmin)
 
 

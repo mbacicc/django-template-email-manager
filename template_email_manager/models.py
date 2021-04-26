@@ -12,33 +12,36 @@ else:
     from django.utils.translation import gettext_lazy as _
 
 class EmailConfig(models.Model):
+    class EmailConfigBackendChoices(models.TextChoices):
+        SMTP = 'SMTP', _('SMTP Backend')
+        CONSOLE = 'CONS', _('Console Backend')
 
     @staticmethod
     def post_save_handler(instance, **kwargs):
-        if instance.active:
-            EmailConfig.objects.exclude(pk=instance.pk).update(active=False)
-        EmailConfig.get_active_theme()
+        if instance.default:
+            EmailConfig.objects.exclude(pk=instance.pk).update(default=False)
+        EmailConfig.get_default_config()
 
     @staticmethod
-    def get_active_theme():
+    def get_default_config():
         objs_manager = EmailConfig.objects
-        objs_active_qs = objs_manager.filter(active=True)
-        objs_active_ls = list(objs_active_qs)
-        objs_active_count = len(objs_active_ls)
+        objs_default_qs = objs_manager.filter(default=True)
+        objs_default_ls = list(objs_default_qs)
+        objs_default_count = len(objs_default_ls)
 
-        if objs_active_count == 0:
+        if objs_default_count == 0:
             obj = objs_manager.all().first()
             if obj:
-                obj.set_active()
+                obj.set_default()
             else:
                 obj = objs_manager.create()
 
-        elif objs_active_count == 1:
-            obj = objs_active_ls[0]
+        elif objs_default_count == 1:
+            obj = objs_default_ls[0]
 
-        elif objs_active_count > 1:
-            obj = objs_active_ls[-1]
-            obj.set_active()
+        elif objs_default_count > 1:
+            obj = objs_default_ls[-1]
+            obj.set_default()
 
         return obj
 
@@ -46,15 +49,56 @@ class EmailConfig(models.Model):
         default='Default',
         max_length=255,
         unique=True,
-        verbose_name=_('Config Name'))
-    active = models.BooleanField(
+        verbose_name=_('Config Name'),
+        help_text="Configuration Name, must be unique")
+    default = models.BooleanField(
         default=True,
-        verbose_name=_('active'))
-    host = models.CharField(max_length=255)
-    port = models.IntegerField(default=587)
-    use_tls = models.BooleanField(default=True)
-    username = models.CharField(max_length=255)
-    password = models.CharField(max_length=255)
+        verbose_name=_('default'),
+        help_text="If checked this is the default account when new messages have no selected account")
+    backend = models.CharField(
+        max_length=5,
+        choices=EmailConfigBackendChoices.choices,
+        default=EmailConfigBackendChoices.SMTP,
+        help_text="When SMTP is chosen, all other fields are mandatory, otherwise when Console is chosen, Host, Port, TLS, Username and Password are not needed")
+    host = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server host name")
+    port = models.IntegerField(
+        default=587,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server host port")
+    use_tls = models.BooleanField(
+        default=True,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server Use TLS. Mutually exclusive with SSL")
+    use_ssl = models.BooleanField(
+        default=True,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server Use SSL. Mutually exclusive with TLS")
+    timeout = models.IntegerField(
+        default=30,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server timeout time in seconds")
+    username = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server authentication user name")
+    password = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used, SMTP server authentication password")
+    address = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Only needed when SMTP backend is used")
     fail_silently = models.BooleanField(default=False)
     max_attempts = models.IntegerField(default=20)
     default_attempts_wait = models.IntegerField(default=60)
@@ -83,7 +127,23 @@ class ImageAttachment(models.Model):
         verbose_name_plural = 'Image Attachments'
 
 class ContextClass(models.Model):
-    name = models.CharField(max_length=100)
+    class ContextClassTypeChoices(models.TextChoices):
+        INTEGER = 'INT', _('Integer Number')
+        FLOAT = 'FLO', _('Float')
+        STRING = 'STR', _('String')
+        DATE = 'DAT', _('Date')
+        TIME = 'TIM', _('Time')
+        DATETIME = 'DTI', _('DateTime')
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text="Name of the Context Class, must be Unique")
+    value_type = models.CharField(
+        max_length=5,
+        choices=ContextClassTypeChoices.choices,
+        default=ContextClassTypeChoices.INTEGER,
+        help_text="Used to format the content in a more readable way")
     class Meta:
         verbose_name = 'Context Class'
         verbose_name_plural = 'Context Classes'
@@ -136,12 +196,16 @@ class EmailQueue(models.Model):
     sender = models.ForeignKey(EmailAddress,
         on_delete=models.PROTECT,
         related_name='related_queue_sender')
+    account = models.ForeignKey(
+        EmailConfig,
+        on_delete=models.PROTECT
+    )
     to = models.ManyToManyField(EmailAddress,
         related_name='related_queue_to')
     bcc = models.ManyToManyField(EmailAddress,
         related_name='related_queue_bcc',
         blank=True)
-    template_html = models.ForeignKey(HTMLTemplate,
+    html_template = models.ForeignKey(HTMLTemplate,
         on_delete=models.PROTECT)
     context_items = models.ManyToManyField(ContextItem)
     status = models.CharField(max_length=255,
@@ -170,16 +234,21 @@ class EmailQueue(models.Model):
 class EmailPrototype(models.Model):
     name = models.CharField(max_length=255,
         unique=True)
-    subject = models.CharField(max_length=255)
-    sender = models.ForeignKey(EmailAddress,
+    subject = models.CharField(
+        max_length=255)
+    sender = models.ForeignKey(
+        EmailAddress,
         on_delete=models.PROTECT,
         related_name='related_prototype_sender')
-    to = models.ManyToManyField(EmailAddress,
+    to = models.ManyToManyField(
+        EmailAddress,
         related_name='related_prototype_to')
-    bcc = models.ManyToManyField(EmailAddress,
+    bcc = models.ManyToManyField(
+        EmailAddress,
         related_name='related_prototype_bcc',
         blank=True)
-    template_html = models.ForeignKey(HTMLTemplate,
+    html_template = models.ForeignKey(
+        HTMLTemplate,
         on_delete=models.PROTECT)
     class Meta:
         verbose_name = 'E-mail Prototype'
