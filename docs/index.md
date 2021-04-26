@@ -1,6 +1,28 @@
-## Template Email Manager
+---
+# Feel free to add content and custom Front Matter to this file.
+# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
 
-*A small useful app to manage email queues with run-time db-stored customizable templates from any django project*
+layout: page
+title: Home
+permalink: /
+nav_order: 0
+---
+
+
+<!-- PROJECT LOGO -->
+<br />
+<p align="center">
+    <img src="img/django-template-email-manager.png" alt="Django Template Email Manager" width="160" >
+</p>
+  <h1 align="center">Django Template Email Manager</h1>
+
+  <p align="center">
+    A free and open source app to manage email queues from any django project
+    <br />
+    <a href="https://mbacicc.github.io/django-template-email-manager/"><strong>Explore the documentation</strong></a>
+    <br />
+  </p>
+<hr>
 
 ## Info
 

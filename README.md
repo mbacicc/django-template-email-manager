@@ -11,7 +11,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/mbacicc/django-template-email-manager/">
-    <img src="docs/img/django-template-email-manager.png" alt="Firefly III" width="160" >
+    <img src="docs/img/django-template-email-manager.png" alt="Django Template Email Manager" width="160" >
   </a>
 </p>
   <h1 align="center">Django Template Email Manager</h1>
