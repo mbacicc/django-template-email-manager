@@ -29,9 +29,10 @@ class TemplateEmailMessage():
     MessageContext=None
     SendAccountId=None
     SendAccountName=None
+    OverrideDefaultAccount=False
     ToAddresses=None
     BccAddresses=None
-    MessageCreatedBy=None
+    MessageCreatedById=None
     MessageCreatedByName=None
     Error = False
     ErrorMessage = ''
@@ -57,15 +58,11 @@ class TemplateEmailMessage():
             self.MessageSubject = MessageSubject
         if SendAccountId and not SendAccountName:
             self.SendAccountId = SendAccountId
-        else:
-            Error = True
-            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId and SendAccountName are specified, please specify only one'
-            raise ValueError(
-                "Unable to set SendAccountId, since both SendAccountId and"
-                "SendAccountName are specified, please specify only one.")
+            OverrideDefaultAccount = True
         if SendAccountName and not SendAccountId:
             self.SendAccountName = SendAccountName
-        else:
+            OverrideDefaultAccount = True
+        if SendAccountName and SendAccountId:
             Error = True
             ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId and SendAccountName are specified, please specify only one'
             raise ValueError(
@@ -82,21 +79,15 @@ class TemplateEmailMessage():
                 "No e-mail prototype specified")
         if MessageContext:
             self.MessageContext = MessageContext
-        if MessageCreatedBy and not MessageCreatedByName:
-            self.MessageCreatedBy = MessageCreatedBy
-        else:
-            Error = True
-            ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy are MessageCreatedByName are specified, please specify only one'
-            raise ValueError(
-                "Unable to set MessageCreatedBy, since both MessageCreatedBy and"
-                "MessageCreatedByName are specified, please specify only one.")
-        if MessageCreatedByName and not MessageCreatedBy:
+        if MessageCreatedById and not MessageCreatedByName:
+            self.MessageCreatedById = MessageCreatedById 
+        if MessageCreatedByName and not MessageCreatedById:
             self.MessageCreatedByName = MessageCreatedByName
-        else:
+        if MessageCreatedByName and MessageCreatedById:
             Error = True
-            ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy and MessageCreatedByName are specified, please specify only one'
+            ErrorMessage = 'Unable to set MessageCreatedById or MessageCreatedByName, since both MessageCreatedBy and MessageCreatedByName are specified, please specify only one'
             raise ValueError(
-                "Unable to set MessageCreatedBy, since both MessageCreatedBy and"
+                "Unable to set MessageCreatedBy or MessageCreatedByName, since both MessageCreatedBy and"
                 "MessageCreatedByName are specified, please specify only one.")
             
         if MessageId:
@@ -110,7 +101,8 @@ class TemplateEmailMessage():
             try:
                 proto = EmailPrototype.objects.get(name=self.MessagePrototype)
             except:
-                pass
+                raise ValueError("Unable to find Email Prototype"
+                                            " with name \"" + str(self.MessagePrototype) + "\", are you sure you added it to the DB?")
             if proto:
                 if self.MessageSubject:
                     subject = self.MessageSubject
@@ -120,48 +112,74 @@ class TemplateEmailMessage():
                     if result:
                         try:
                             word = result.group(1)
-                            item_value = context[word]
+                            item_value = self.MessageContext[word]
                         except:
-                            pass
+                            raise ValueError("Unable to find Context Item with class named \""
+                                            + str(word) + "\", are you sure you added it to the DB?")
                         if item_value:
                             subject=subject.replace('{{ ' + word + ' }}', item_value)
                 send_user = None
-                if self.MessageCreatedBy:
-                    send_user = User.objects.get(pk=self.MessageCreatedBy)
+                if self.MessageCreatedById:
+                    send_user = User.objects.get(pk=self.MessageCreatedById)
                 else:
                     send_user = User.objects.get(pk=1)
-                self.Message = EmailQueue(subject=subject,
-                    sender=proto.sender,
-                    html_template=proto.html_template,
-                    created_by=send_user,
-                    status=EmailQueue.EmailQueueStatus.CREATING)
-                self.Message.save()
-                self.Message.to.set(proto.to.all())
-                self.Message.bcc.set(proto.bcc.all())
-                self.Message.save()
-                email_context_items = []
-                for def_cont in proto.html_template.requested_context_classes.all():
-                    print (def_cont)
-                    item_value = None
+                send_account = None
+                if self.OverrideDefaultAccount:
+                    if self.SendAccountId:
+                        send_account = self.SendAccountId
+                    else:
+                        try:
+                            send_account = EmailConfig.objects.get(config_name=self.SendAccountName).id
+                        except:
+                            raise ValueError("Unable to find Email Configuration"
+                                            " with name " + str(self.SendAccountName))
+                else:
                     try:
-                        item_value = context[def_cont.name]
-                        item_name = def_cont.name
+                        send_account = EmailConfig.objects.get(default=True).id
                     except:
-                        pass
-                    if item_value != None:
-                        ci = ContextItem(context_class=ContextClass.objects.get(pk=def_cont.pk))
-                        ci.value = item_value
-                        ci.save()
-                        self.Message.context_items.add(ci)
-                self.Message.status=EmailQueue.EmailQueueStatus.READY
-                self.Message.save()
-            print (context)
-            response = {
-                'answer': True,
-                'explain': 'Message queued Successfully',
-                'MessageId': self.MessageId
-            }
-            return response
+                        raise ValueError("No Valid Email Configuration Existing")
+                if send_account:
+                    self.Message = EmailQueue(subject=subject,
+                        sender=proto.sender,
+                        html_template=proto.html_template,
+                        created_by=send_user,
+                        status=EmailQueue.EmailQueueStatus.CREATING,
+                        account_id=send_account)
+                    self.Message.save()
+                    self.Message.to.set(proto.to.all())
+                    self.Message.bcc.set(proto.bcc.all())
+                    self.Message.save()
+                    email_context_items = []
+                    for def_cont in proto.html_template.requested_context_classes.all():
+                        item_value = None
+                        try:
+                            item_value = self.MessageContext[def_cont.name]
+                            item_name = def_cont.name
+                        except:
+                            if self.Message:
+                                self.Message.delete()
+                            raise ValueError("Unable to find Context Item with class named \""
+                                            + str(def_cont.name) + "\", are you sure you declared it in the context while calling TemplateEmailMessage class?")
+                            pass
+                        if item_value != None:
+                            ci = ContextItem(context_class=ContextClass.objects.get(pk=def_cont.pk))
+                            ci.value = item_value
+                            ci.save()
+                            self.Message.context_items.add(ci)
+                        else:
+                            if self.Message:
+                                self.Message.delete()
+                            raise ValueError("Unable to find Context Item with class named \""
+                                            + str(def_cont.name) + "\", are you sure you declared it in the context while calling TemplateEmailMessage class?")
+                    
+                    self.Message.save()
+                print (self.MessageContext)
+                response = {
+                    'answer': True,
+                    'explain': 'Message queued Successfully',
+                    'MessageId': self.MessageId
+                }
+                return response
         else:
             response = {
                 'answer': False,
@@ -182,13 +200,17 @@ class TemplateEmailMessage():
         return response
 
     def SendMessage(self):
-        
-        response = {
-            'answer': True,
-            'explain': 'Command Executed Successfully',
-            'MessageId': self.MessageId
-        }
-        return response
+        if self.Message:
+            self.Message.status=EmailQueue.EmailQueueStatus.READY
+            self.Message.save()
+            response = {
+                'answer': True,
+                'explain': 'Command Executed Successfully',
+                'MessageId': self.MessageId
+            }
+            return response
+        else:
+            raise ValueError("Unable to send Message, Message undefined")
 
     def GetMessageStatus(self):
 

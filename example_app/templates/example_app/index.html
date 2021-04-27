@@ -15,14 +15,66 @@
 </button>
 <div class="collapse navbar-collapse" id="navbarCollapse">
   <ul class="navbar-nav me-auto mb-2 mb-md-0">
-    <!-- <li class="nav-item">
-            <a class="nav-link" href="#">Link</a>
-          </li> -->
+    <li class="nav-item">
+      <a class="nav-link" href="{% url 'admin:index' %}">Admin site</a>
+    </li>
   </ul>
 </div>
 {% endblock %} {% block content %}
 <h1 class="mt-5">Examples</h1>
-<a  href="{% url 'example_app:add_email' %}" class="btn btn-primary mt-2">
-  Add Email to queue
-</a>
+<hr>
+<h3 class="m-4">Example 1</h3>
+<h6>
+  Adding of a simple email with 2 context items to the queue
+</h6>
+<p class="mt-3">In this example we add a simple email to the mailing queue.</p>
+<p>Subject and receiving addresses are stored inside the e-mail prototype.</p>
+<p>This is a common case for a recurring e-mail always sent to the same receiving addresses.</p>
+<p>
+  The e-mail prototype id called 'daily_number' and we are passing a context dict for the
+  template variables replacement. After the code execution, the variable <code>tem</code>
+  is an instance of the TemplateEmailMessage class, which we can use to get information on
+  the Message status
+</p>
+<p>
+  Before Adding the email to the Queue, it is necessary to init the DB with the context class 
+  informations, the message prototype, the email addresses needed by the example. 
+  <a href="{% url 'example_app:download_fixture' 1 %}">Download the fixture needed for example 1</a>
+</p>
+
+<div class="row align-items-md-stretch">
+  <div class="col-md-6">
+    <pre>
+      <code class="python">
+        context={
+          'context_integer': 10,
+          'context_string': 'Test User'
+        }
+      
+        tem = TemplateEmailMessage(
+          MessagePrototype='daily_number',
+          MessageContext=context)
+        
+        tem.SendMessage()
+      </code>
+    </pre>
+  </div>
+  <div class="col-md-6">
+    <div class="h-100 p-5">
+      <div class="row">
+        <a  href="{% url 'example_app:download_fixture' 1 %}" class="btn btn-primary mt-2">
+          1 - Download Fixture
+        </a>
+      </div>
+      <div class="row">
+        <a  href="{% url 'example_app:example1' %}" class="btn btn-primary mt-2">
+          2 - Add Email to queue
+        </a>
+      </div>
+      
+    </div>
+    
+  </div>
+</div>
+
 {% endblock %}

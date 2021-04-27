@@ -164,7 +164,7 @@ class HTMLTemplate(models.Model):
     shortname = models.CharField(max_length=45, unique=True, default='new_template')
     fullname = models.CharField(max_length=255,null=True, blank=True)
     html_content = models.TextField(null=True, blank=True)
-    images = models.ManyToManyField(ImageAttachment)
+    images = models.ManyToManyField(ImageAttachment, blank=True)
     text_alternate = models.TextField(null=True, blank=True)
     requested_context_classes = models.ManyToManyField(ContextClass)
     class Meta:

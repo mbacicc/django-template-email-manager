@@ -6,7 +6,8 @@ from django.views.generic import TemplateView
 app_name = 'example_app'
 urlpatterns = [
     path('', views.IndexView.as_view(), name='index'),
-    path('add_email/', views.AddEmailView, name='add_email'),
+    path('example1/', views.Example1View, name='example1'),
+    re_path(r'^download-fixture/(?P<fixture_id>\d+)/$', views.DownloadFixtureView, name='download_fixture'),
 
     
 ]
