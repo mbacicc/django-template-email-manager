@@ -18,145 +18,185 @@ from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
 from django.core.mail.backends.console import EmailBackend as ConsoleEmailBackend
 from .models import *
 
-
-def attempt_send_email(email):
-
-    try:
-        email_config = EmailConfig.objects.get(active=True)
-    except:
-        return None
-    if email_config:
-        smtp_backend = SMTPEmailBackend(host=email_config.host, port=email_config.port, username=email_config.username, 
-                        password=email_config.password, use_tls=email_config.use_tls, fail_silently=email_config.fail_silently)
-
-        console_backend = ConsoleEmailBackend(fail_silently=email_config.fail_silently)
+import re
 
 
-
-        try:
-            email.status = EmailQueue.EmailQueueStatus.INPROGRESS
-            email.last_operation = datetime.now(timezone.utc)
-            email.save()
-        except:
-            pass
-
-        emailSubject = email.subject
-        emailOfSender = email.sender.address
-        emailOfRecipient = []
-        for to_address in email.to.all():
-            emailOfRecipient.append(to_address.address)
-        emailBcc = []
-        for bcc_address in email.bcc.all():
-            emailBcc.append(bcc_address.address)
-        headers={
-            "From": email.sender.name + " <" + email.sender.address + ">"
-        }
-        context = {}
-
-        for item in email.context_items.all():
-            cont_item = {
-                item.context_class.name : item.value
-            }
-            context.update(cont_item)
-
-        html_template_string = email.html_template.html_content
-        html_template = Template(html_template_string)
-        html_content = html_template.render(Context(context))
-
-        txt_template_string = email.html_template.text_alternate
-        txt_template = Template(txt_template_string)
-        text_content = txt_template.render(Context(context))
-
-        emailMessage = EmailMultiAlternatives(subject=emailSubject, body=text_content, from_email=emailOfSender,\
-            to=emailOfRecipient, bcc=emailBcc, reply_to=[emailOfSender,], headers=headers, connection=backend)
-
-        emailMessage.attach_alternative(html_content, "text/html")
-        
-        success = True
-        try:
-            for image in email.html_template.images.all():
-                fp = open(os.path.join(settings.MEDIA_ROOT, image.image.name), 'rb')
-                msg_img = MIMEImage(fp.read())
-                fp.close()
-                msg_img.add_header('Content-ID', '<{}>'.format(image.name))
-                emailMessage.attach(msg_img)
-        except:
-            pass
-        try:
-            emailMessage.send(fail_silently=False)
-            pass
-
-        except SMTPException as e:
-            # print('There was an error sending an email: ', e) 
-            # error = {'message': ",".join(e.args) if len(e.args) > 0 else 'Unknown Error'}
-            
-            success = False
-            try:
-                if email.send_attempts < email_config.max_attempts : 
-                    email.status = EmailQueue.EmailQueueStatus.FAILED
-                    email.send_attempts += 1
-                    email.retry_at = datetime.now(timezone.utc) + timedelta(seconds=email_config.default_attempts_wait + (email_config.default_attempts_wait_multiplier * email.send_attempts))
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', SMTP Error SMTPException ' + str(e.args)
-                    email.save()
-                else :
-                    email.status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED
-                    email.send_attempts += 1
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S") + ', SMTP Error SMTPException ' + str(e.args) + ' - canceling email send for max number of attempts'
-                    email.save()
-            except:
-                pass
-            return False
-        except SMTPDataError as e:
-            success = False
-            try:
-                if email.send_attempts < email_config.max_attempts : 
-                    email.status = EmailQueue.EmailQueueStatus.FAILED
-                    email.send_attempts += 1
-                    email.retry_at = datetime.now(timezone.utc) + timedelta(seconds=email_config.default_attempts_wait + (email_config.default_attempts_wait_multiplier * email.send_attempts))
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', SMTP Error SMTPDataError ' + str(e.args)
-                    email.save()
-                else :
-                    email.status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED
-                    email.send_attempts += 1
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S") + ', SMTP Error SMTPDataError ' + str(e.args) + ' - canceling email send for max number of attempts'
-                    email.save()
-            except:
-                pass
-            return False
-        except Exception as e:
-            print('There was an error sending an email: ', e) 
-            try:
-                if email.send_attempts < email_config.max_attempts : 
-                    email.status = EmailQueue.EmailQueueStatus.FAILED
-                    email.send_attempts += 1
-                    email.retry_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")  + timedelta(seconds=email_config.default_attempts_wait + (email_config.default_attempts_wait_multiplier * email.send_attempts))
-                    email.error_log += ';' + datetime.now() + ', Error ' + str(e.args)
-                    email.last_operation = datetime.now(timezone.utc)
-                    email.save()
-                else :
-                    email.status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED
-                    email.send_attempts += 1
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', SMTP Error ' + str(e.args) + ' - canceling email send for max number of attempts'
-                    email.last_operation = datetime.now(timezone.utc)
-                    email.save()
-            except:
-                pass
-            success = False
-            return False
-        if success:
-            try:
-                email.status = EmailQueue.EmailQueueStatus.SENT
-                email.send_attempts += 1
-                email.sent_on = datetime.now(timezone.utc)
-                email.last_operation = datetime.now(timezone.utc)
-                email.save()
-            except:
-                pass
-    return True
+class TemplateEmailMessage():
     
+    MessageId=None
+    MessageSubject=None
+    MessagePrototype=None
+    MessageContext=None
+    SendAccountId=None
+    SendAccountName=None
+    ToAddresses=None
+    BccAddresses=None
+    MessageCreatedBy=None
+    MessageCreatedByName=None
+    Error = False
+    ErrorMessage = ''
 
-def fail_email(email, reason):
-    email.status = EmailQueue.EmailQueueStatus.FAILED
-    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', Failed: ' + reason
-    email.last_operation = datetime.now(timezone.utc)
-    email.save()
+    Message=None
+
+    def __init__(
+        self,
+        MessageId=None,             # Optional, If accessing with MessageId, we are trying to retrieve an already created message to follow its status, otherwise we create a new message
+        MessageSubject=None,        # If passing MessageSubject, we override the default subject in the Email Prototype
+        MessagePrototype=None,      # Name of the Email Prototype as stored in the DB
+        MessageContext=None,        # Dict of variable to replace in the HTML and TXT template
+        SendAccountId=None,         # If passing SendAccountId, we override the default send account configured in EmailConfig, SendAccountId is the ID of the EmailConfig instance
+        SendAccountName=None,       # If passing SendAccountName, we override the default send account configured in EmailConfig, SendAccountName is the config_name field of the EmailConfig instance
+        ToAddresses=None,           # list of email addresses as strings, overrides the default Email Prototype list of addresses
+        BccAddresses=None,          # list of email addresses as strings, overrides the default Email Prototype list of addresses
+        MessageCreatedById=None,    # If passing MessageCreatedById, we override the default user adding the email to the queue (user with ID 1)
+        MessageCreatedByName=None,  # If passing MessageCreatedByName, we override the default user adding the email to the queue (user with ID 1)
+        ):
+        """__init__() functions as the class constructor, retrieves the parameters from the user call
+        and configures the TemplateEmailMessage class"""
+        if MessageSubject:
+            self.MessageSubject = MessageSubject
+        if SendAccountId and not SendAccountName:
+            self.SendAccountId = SendAccountId
+        else:
+            Error = True
+            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId and SendAccountName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set SendAccountId, since both SendAccountId and"
+                "SendAccountName are specified, please specify only one.")
+        if SendAccountName and not SendAccountId:
+            self.SendAccountName = SendAccountName
+        else:
+            Error = True
+            ErrorMessage = 'Unable to set SendAccountId, since both SendAccountId and SendAccountName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set SendAccountId, since both SendAccountId and"
+                "SendAccountName are specified, please specify only one.")
+        if ToAddresses:
+            self.ToAddresses = ToAddresses
+        if BccAddresses:
+            self.BccAddresses = BccAddresses
+        if MessagePrototype:
+            self.MessagePrototype = MessagePrototype
+        else:
+            raise ValueError(
+                "No e-mail prototype specified")
+        if MessageContext:
+            self.MessageContext = MessageContext
+        if MessageCreatedBy and not MessageCreatedByName:
+            self.MessageCreatedBy = MessageCreatedBy
+        else:
+            Error = True
+            ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy are MessageCreatedByName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set MessageCreatedBy, since both MessageCreatedBy and"
+                "MessageCreatedByName are specified, please specify only one.")
+        if MessageCreatedByName and not MessageCreatedBy:
+            self.MessageCreatedByName = MessageCreatedByName
+        else:
+            Error = True
+            ErrorMessage = 'Unable to set MessageCreatedBy, since both MessageCreatedBy and MessageCreatedByName are specified, please specify only one'
+            raise ValueError(
+                "Unable to set MessageCreatedBy, since both MessageCreatedBy and"
+                "MessageCreatedByName are specified, please specify only one.")
+            
+        if MessageId:
+            self.RetrieveMessage(MessageId)
+        else:
+            self.CreateMessage()
+
+    def CreateMessage(self):
+        if not self.Error:
+            proto = None
+            try:
+                proto = EmailPrototype.objects.get(name=self.MessagePrototype)
+            except:
+                pass
+            if proto:
+                if self.MessageSubject:
+                    subject = self.MessageSubject
+                else:
+                    subject = proto.subject
+                    result = re.search(r"\{{ ([A-Za-z0-9_]+)\ }}", subject)
+                    if result:
+                        try:
+                            word = result.group(1)
+                            item_value = context[word]
+                        except:
+                            pass
+                        if item_value:
+                            subject=subject.replace('{{ ' + word + ' }}', item_value)
+                send_user = None
+                if self.MessageCreatedBy:
+                    send_user = User.objects.get(pk=self.MessageCreatedBy)
+                else:
+                    send_user = User.objects.get(pk=1)
+                self.Message = EmailQueue(subject=subject,
+                    sender=proto.sender,
+                    html_template=proto.html_template,
+                    created_by=send_user,
+                    status=EmailQueue.EmailQueueStatus.CREATING)
+                self.Message.save()
+                self.Message.to.set(proto.to.all())
+                self.Message.bcc.set(proto.bcc.all())
+                self.Message.save()
+                email_context_items = []
+                for def_cont in proto.html_template.requested_context_classes.all():
+                    print (def_cont)
+                    item_value = None
+                    try:
+                        item_value = context[def_cont.name]
+                        item_name = def_cont.name
+                    except:
+                        pass
+                    if item_value != None:
+                        ci = ContextItem(context_class=ContextClass.objects.get(pk=def_cont.pk))
+                        ci.value = item_value
+                        ci.save()
+                        self.Message.context_items.add(ci)
+                self.Message.status=EmailQueue.EmailQueueStatus.READY
+                self.Message.save()
+            print (context)
+            response = {
+                'answer': True,
+                'explain': 'Message queued Successfully',
+                'MessageId': self.MessageId
+            }
+            return response
+        else:
+            response = {
+                'answer': False,
+                'explain': self.ErrorMessage,
+                'MessageId': None
+            }
+            return response
+
+
+    
+    def RetrieveMessage(self,MessageId):
+
+        response = {
+            'answer': True,
+            'explain': 'Command Executed Successfully',
+            'MessageId': self.MessageId
+        }
+        return response
+
+    def SendMessage(self):
+        
+        response = {
+            'answer': True,
+            'explain': 'Command Executed Successfully',
+            'MessageId': self.MessageId
+        }
+        return response
+
+    def GetMessageStatus(self):
+
+        response = {
+            'answer': True,
+            'explain': 'Command Executed Successfully',
+            'MessageId': self.MessageId,
+            'status': 'sent'
+        }
+        return response
+

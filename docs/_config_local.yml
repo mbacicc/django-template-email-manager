@@ -22,12 +22,12 @@ title: Django Template Email Manager
 email: mbacicc@gmail.com
 description: >- # this means to ignore newlines until "baseurl:"
   A free and open source app to manage email queues from any django project
-baseurl: "django-template-email-manager" # the subpath of your site, e.g. /blog
+baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 github_username:  mbacicc
 
 # Build settings
-remote_theme: pmarsceill/just-the-docs
+theme: just-the-docs
 plugins:
   - jekyll-feed
 
