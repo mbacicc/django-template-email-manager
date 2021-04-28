@@ -7,7 +7,21 @@ from template_email_manager.manager import TemplateEmailMessage
 class IndexView(TemplateView):
     template_name = 'example_app/index.html'
 
+class ExamplesView(TemplateView):
+    template_name = 'example_app/examples.html'
+
 def Example1View(request):
+
+
+    tem = TemplateEmailMessage(
+        MessagePrototype='hello_world')
+
+    tem.SendMessage()
+    
+    return HttpResponseRedirect(reverse('example_app:index'))
+
+
+def Example2View(request):
 
     context={
         'context_integer': 10,

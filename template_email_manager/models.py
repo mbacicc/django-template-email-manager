@@ -207,7 +207,9 @@ class EmailQueue(models.Model):
         blank=True)
     html_template = models.ForeignKey(HTMLTemplate,
         on_delete=models.PROTECT)
-    context_items = models.ManyToManyField(ContextItem)
+    context_items = models.ManyToManyField(
+        ContextItem,
+        blank=True)
     status = models.CharField(max_length=255,
         choices=EmailQueueStatus.choices,
         default=EmailQueueStatus.CREATING)

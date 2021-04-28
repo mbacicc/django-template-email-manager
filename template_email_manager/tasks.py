@@ -21,9 +21,9 @@ logger = logging.getLogger('django.email_manager.background_tasks')
 
 timeout_in_progress_expiration_seconds = 600
 
-from .commands import *
 
-@background(schedule=60)
+
+@background(schedule=10)
 # @background()
 def background_process_emails():
 
@@ -38,21 +38,22 @@ def background_process_emails():
     for email in emails:
         fail_email(email, 'expired, in progress for more than ' + str(timeout_in_progress_expiration_seconds) + ' seconds')
 
-    return 1
+    return True
+    
 
 
 
 def attempt_send_email(email):
 
-    try:
-        email_config = EmailConfig.objects.get(active=True)
-    except:
-        return None
-    if email_config:
-        smtp_backend = SMTPEmailBackend(host=email_config.host, port=email_config.port, username=email_config.username, 
-                        password=email_config.password, use_tls=email_config.use_tls, fail_silently=email_config.fail_silently)
 
-        console_backend = ConsoleEmailBackend(fail_silently=email_config.fail_silently)
+    email_config = email.account
+
+    if email_config:
+        if email_config.backend == EmailConfig.EmailConfigBackendChoices.SMTP:
+            email_backend = SMTPEmailBackend(host=email_config.host, port=email_config.port, username=email_config.username, 
+                            password=email_config.password, use_tls=email_config.use_tls, fail_silently=email_config.fail_silently)
+        else:
+            email_backend = ConsoleEmailBackend(fail_silently=email_config.fail_silently)
 
 
 
@@ -67,10 +68,10 @@ def attempt_send_email(email):
         emailOfSender = email.sender.address
         emailOfRecipient = []
         for to_address in email.to.all():
-            emailOfRecipient.append(to_address.address)
+            emailOfRecipient.append(to_address.name + " <" + to_address.address + ">")
         emailBcc = []
         for bcc_address in email.bcc.all():
-            emailBcc.append(bcc_address.address)
+            emailBcc.append(bcc_address.name + " <" + bcc_address.address + ">")
         headers={
             "From": email.sender.name + " <" + email.sender.address + ">"
         }
@@ -91,7 +92,7 @@ def attempt_send_email(email):
         text_content = txt_template.render(Context(context))
 
         emailMessage = EmailMultiAlternatives(subject=emailSubject, body=text_content, from_email=emailOfSender,\
-            to=emailOfRecipient, bcc=emailBcc, reply_to=[emailOfSender,], headers=headers, connection=backend)
+            to=emailOfRecipient, bcc=emailBcc, reply_to=[emailOfSender,], headers=headers, connection=email_backend)
 
         emailMessage.attach_alternative(html_content, "text/html")
         

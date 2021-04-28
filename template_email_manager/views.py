@@ -4,7 +4,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from .tasks import *
 
 def process_emails(request):
-    background_process_emails(schedule=0, repeat=60)
+    background_process_emails(schedule=0, repeat=30)
     return HttpResponse('ok')
     
 def add_test_email(request):

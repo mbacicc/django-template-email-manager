@@ -1,3 +1,87 @@
+[
 {
-    "a": 1
+    "model": "template_email_manager.emailconfig",
+    "pk": 1,
+    "fields": {
+        "config_name": "smtp4dev-localhost",
+        "default": true,
+        "backend": "SMTP",
+        "host": "localhost",
+        "port": 25,
+        "use_tls": false,
+        "use_ssl": false,
+        "timeout": 30,
+        "username": "fake_user",
+        "password": "fake_pass",
+        "address": "no-reply@example.com",
+        "fail_silently": false,
+        "max_attempts": 20,
+        "default_attempts_wait": 60,
+        "default_attempts_wait_multiplier": 10
+    }
+},
+{
+    "model": "template_email_manager.emailconfig",
+    "pk": 2,
+    "fields": {
+        "config_name": "console",
+        "default": false,
+        "backend": "CONS",
+        "host": null,
+        "port": 587,
+        "use_tls": true,
+        "use_ssl": true,
+        "timeout": 30,
+        "username": null,
+        "password": null,
+        "address": null,
+        "fail_silently": false,
+        "max_attempts": 20,
+        "default_attempts_wait": 60,
+        "default_attempts_wait_multiplier": 10
+    }
+},
+{
+    "model": "template_email_manager.htmltemplate",
+    "pk": 1,
+    "fields": {
+        "shortname": "hello_world_template",
+        "fullname": "Hello World Template",
+        "html_content": "Hello World",
+        "text_alternate": "Hello World",
+        "images": [],
+        "requested_context_classes": [
+        ]
+    }
+},
+{
+    "model": "template_email_manager.emailaddress",
+    "pk": 1,
+    "fields": {
+        "name": "Django Server",
+        "address": "no-reply@example.com"
+    }
+},
+{
+    "model": "template_email_manager.emailaddress",
+    "pk": 2,
+    "fields": {
+        "name": "User",
+        "address": "user@example.com"
+    }
+},
+{
+    "model": "template_email_manager.emailprototype",
+    "pk": 1,
+    "fields": {
+        "name": "hello_world",
+        "subject": "Hello World Subject",
+        "sender": 1,
+        "html_template": 1,
+        "to": [
+            2
+        ],
+        "bcc": []
+    }
 }
+]

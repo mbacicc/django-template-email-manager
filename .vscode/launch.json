@@ -5,12 +5,26 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Django",
+      "name": "Django Server",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}\\manage.py",
-      "args": ["runserver", "0.0.0.0:8010"],
+      "program": "${workspaceFolder}/manage.py",
+      "args": [
+        "runserver",
+         "0.0.0.0:8010"
+        ],
       "django": true
+    },
+    {
+      "name": "Run Background Tasks",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": [
+        "process_tasks",
+        "--duration",
+        "3600"
+      ]
     },
     {
       "name": "Create Local Package",
