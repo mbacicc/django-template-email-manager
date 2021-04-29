@@ -45,6 +45,14 @@ def background_process_emails():
 
 def attempt_send_email(email):
 
+    eql = EmailQueueLog(
+        message = email,
+        status = EmailQueue.EmailQueueStatus.INPROGRESS,
+        send_attempt = 0,
+        error_code = 0,
+        log_info = 'Starting composing e-mail message'
+    )
+    eql.save()
 
     email_config = email.account
 
@@ -107,6 +115,14 @@ def attempt_send_email(email):
         except:
             pass
         try:
+            eql = EmailQueueLog(
+                message = email,
+                status = EmailQueue.EmailQueueStatus.INPROGRESS,
+                send_attempt = 0,
+                error_code = 0,
+                log_info = 'Attempting e-mail send'
+            )
+            eql.save()
             emailMessage.send(fail_silently=False)
             pass
 
@@ -120,13 +136,27 @@ def attempt_send_email(email):
                     email.status = EmailQueue.EmailQueueStatus.FAILED
                     email.send_attempts += 1
                     email.retry_at = datetime.now(timezone.utc) + timedelta(seconds=email_config.default_attempts_wait + (email_config.default_attempts_wait_multiplier * email.send_attempts))
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', SMTP Error SMTPException ' + str(e.args)
                     email.save()
+                    eql = EmailQueueLog(
+                        message = email,
+                        status = EmailQueue.EmailQueueStatus.FAILED,
+                        send_attempt = 0,
+                        error_code = int(e.args),
+                        log_info = 'SMTP Error SMTPException ' + str(e.args)
+                    )
+                    eql.save()
                 else :
                     email.status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED
                     email.send_attempts += 1
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S") + ', SMTP Error SMTPException ' + str(e.args) + ' - canceling email send for max number of attempts'
                     email.save()
+                    eql = EmailQueueLog(
+                        message = email,
+                        status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED,
+                        send_attempt = 0,
+                        error_code = int(e.args),
+                        log_info = 'SMTP Error SMTPException ' + str(e.args) + ' - canceling email send for max number of attempts'
+                    )
+                    eql.save()
             except:
                 pass
             return False
@@ -137,13 +167,27 @@ def attempt_send_email(email):
                     email.status = EmailQueue.EmailQueueStatus.FAILED
                     email.send_attempts += 1
                     email.retry_at = datetime.now(timezone.utc) + timedelta(seconds=email_config.default_attempts_wait + (email_config.default_attempts_wait_multiplier * email.send_attempts))
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', SMTP Error SMTPDataError ' + str(e.args)
                     email.save()
+                    eql = EmailQueueLog(
+                        message = email,
+                        status = EmailQueue.EmailQueueStatus.FAILED,
+                        send_attempt = 0,
+                        error_code = int(e.args),
+                        log_info = 'SMTP Error SMTPDataError ' + str(e.args)
+                    )
+                    eql.save()
                 else :
                     email.status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED
                     email.send_attempts += 1
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S") + ', SMTP Error SMTPDataError ' + str(e.args) + ' - canceling email send for max number of attempts'
                     email.save()
+                    eql = EmailQueueLog(
+                        message = email,
+                        status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED,
+                        send_attempt = 0,
+                        error_code = int(e.args),
+                        log_info = 'SMTP Error SMTPDataError ' + str(e.args) + ' - canceling email send for max number of attempts'
+                    )
+                    eql.save()
             except:
                 pass
             return False
@@ -154,15 +198,29 @@ def attempt_send_email(email):
                     email.status = EmailQueue.EmailQueueStatus.FAILED
                     email.send_attempts += 1
                     email.retry_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S")  + timedelta(seconds=email_config.default_attempts_wait + (email_config.default_attempts_wait_multiplier * email.send_attempts))
-                    email.error_log += ';' + datetime.now() + ', Error ' + str(e.args)
                     email.last_operation = datetime.now(timezone.utc)
                     email.save()
+                    eql = EmailQueueLog(
+                        message = email,
+                        status = EmailQueue.EmailQueueStatus.FAILED,
+                        send_attempt = 0,
+                        error_code = int(e.args),
+                        log_info = 'Error ' + str(e.args)
+                    )
+                    eql.save()
                 else :
                     email.status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED
                     email.send_attempts += 1
-                    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', SMTP Error ' + str(e.args) + ' - canceling email send for max number of attempts'
                     email.last_operation = datetime.now(timezone.utc)
                     email.save()
+                    eql = EmailQueueLog(
+                        message = email,
+                        status = EmailQueue.EmailQueueStatus.MAXATTEMPTSCANCELED,
+                        send_attempt = 0,
+                        error_code = int(e.args),
+                        log_info = 'Error ' + str(e.args) + ' - canceling email send for max number of attempts'
+                    )
+                    eql.save()
             except:
                 pass
             success = False
@@ -174,6 +232,14 @@ def attempt_send_email(email):
                 email.sent_on = datetime.now(timezone.utc)
                 email.last_operation = datetime.now(timezone.utc)
                 email.save()
+                eql = EmailQueueLog(
+                    message = email,
+                    status = EmailQueue.EmailQueueStatus.SENT,
+                    send_attempt = 0,
+                    error_code = 0,
+                    log_info = 'Message sent'
+                )
+                eql.save()
             except:
                 pass
     return True
@@ -181,6 +247,13 @@ def attempt_send_email(email):
 
 def fail_email(email, reason):
     email.status = EmailQueue.EmailQueueStatus.FAILED
-    email.error_log += ';' + datetime.now().strftime("%d/%m/%Y %H:%M:%S")  + ', Failed: ' + reason
     email.last_operation = datetime.now(timezone.utc)
     email.save()
+    eql = EmailQueueLog(
+        message = email,
+        status = EmailQueue.EmailQueueStatus.FAILED,
+        send_attempt = 0,
+        error_code = 0,
+        log_info = 'Failed: ' + reason
+    )
+    eql.save()

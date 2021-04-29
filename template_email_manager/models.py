@@ -220,8 +220,6 @@ class EmailQueue(models.Model):
     created_on = models.DateTimeField(default=now)
     sent_on = models.DateTimeField(blank=True,
         null=True)
-    error_log = models.TextField(
-        blank=True)
     send_attempts = models.IntegerField(default=0)
     retry_at = models.DateTimeField(default=None,
         blank=True,
@@ -257,3 +255,23 @@ class EmailPrototype(models.Model):
         verbose_name_plural = 'E-mail Prototypes'
     def __str__(self):
         return str(self.id) + ' - ' + self.name
+
+class EmailQueueLog(models.Model):
+    message = models.ForeignKey(
+        EmailQueue,
+        on_delete=models.PROTECT)
+    status = models.CharField(
+        max_length=5,
+        choices=EmailQueue.EmailQueueStatus.choices)
+    send_attempt = models.IntegerField()
+    timestamp = models.DateTimeField(default=now)
+    error_code = models.IntegerField(
+        blank=True,
+        null=True)
+    log_info = models.TextField()
+    class Meta:
+        abstract = True
+        ordering = ["-timestamp"]
+    class Meta:
+        verbose_name = 'E-mail Queue Log'
+        verbose_name_plural = 'E-mail Queue Logs'

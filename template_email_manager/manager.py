@@ -149,6 +149,14 @@ class TemplateEmailMessage():
                     self.Message.to.set(proto.to.all())
                     self.Message.bcc.set(proto.bcc.all())
                     self.Message.save()
+                    eql = EmailQueueLog(
+                        message = self.Message,
+                        status = EmailQueue.EmailQueueStatus.CREATING,
+                        send_attempt = 0,
+                        error_code = 0,
+                        log_info = 'Startes Message creation'
+                    )
+                    eql.save()
                     email_context_items = []
                     for def_cont in proto.html_template.requested_context_classes.all():
                         item_value = None
@@ -173,13 +181,23 @@ class TemplateEmailMessage():
                                             + str(def_cont.name) + "\", are you sure you declared it in the context while calling TemplateEmailMessage class?")
                     
                     self.Message.save()
-                print (self.MessageContext)
-                response = {
-                    'answer': True,
-                    'explain': 'Message queued Successfully',
-                    'MessageId': self.MessageId
-                }
-                return response
+                    
+                    eql = EmailQueueLog(
+                        message = self.Message,
+                        status = EmailQueue.EmailQueueStatus.CREATING,
+                        send_attempt = 0,
+                        error_code = 0,
+                        log_info = 'Message created Successfully'
+                    )
+                    eql.save()
+
+                    # print (self.MessageContext)
+                    response = {
+                        'answer': True,
+                        'explain': 'Message queued Successfully',
+                        'MessageId': self.MessageId
+                    }
+                    return response
         else:
             response = {
                 'answer': False,
@@ -203,6 +221,14 @@ class TemplateEmailMessage():
         if self.Message:
             self.Message.status=EmailQueue.EmailQueueStatus.READY
             self.Message.save()
+            eql = EmailQueueLog(
+                message = self.Message,
+                status = EmailQueue.EmailQueueStatus.READY,
+                send_attempt = 0,
+                error_code = 0,
+                log_info = 'Message status changed to ready'
+            )
+            eql.save()
             response = {
                 'answer': True,
                 'explain': 'Command Executed Successfully',

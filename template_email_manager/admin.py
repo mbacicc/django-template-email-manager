@@ -34,3 +34,23 @@ class EmailPrototypeAdmin(admin.ModelAdmin):
 admin.site.register(EmailPrototype,EmailPrototypeAdmin)
 
 
+class EmailQueueLogAdmin(admin.ModelAdmin):
+    model = EmailQueueLog
+    list_display = ['id', 'timestamp', 'message', 'status', 'error_code', 'send_attempt', 'log_info']
+    date_hierarchy = "timestamp"
+    search_fields = ["message", "status", "error_code", "log_info"]
+    list_filter = ["status", "error_code", "send_attempt"]
+
+    readonly_fields = [
+        "timestamp",
+        "message",
+        "status",
+        "error_code",
+        "send_attempt",
+        "log_info",
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+admin.site.register(EmailQueueLog,EmailQueueLogAdmin)
