@@ -1,4 +1,4 @@
-asgiref==3.3.4
+asgiref==3.5.0
 Django==3.2
 docutils==0.17.1
 Pillow==8.2.0
